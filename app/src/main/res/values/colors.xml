@@ -1,0 +1,10 @@
+<resources>
+    <color name="lighton_ink">#000000</color>
+    <color name="lighton_ink_subtle">#3D3D3D</color>
+    <color name="lighton_ink_muted">#6B6B6B</color>
+    <color name="lighton_line">#D1D1D1</color>
+    <color name="lighton_line_strong">#9E9E9E</color>
+    <color name="lighton_canvas">#FAFAFA</color>
+    <color name="lighton_muted_surface">#F2F2F2</color>
+    <color name="lighton_surface">#FFFFFF</color>
+</resources>

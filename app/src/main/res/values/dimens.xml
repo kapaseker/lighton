@@ -1,0 +1,37 @@
+<resources>
+    <dimen name="lighton_touch_target">48dp</dimen>
+    <dimen name="lighton_screen_gutter">16dp</dimen>
+    <dimen name="lighton_related_gap">12dp</dimen>
+    <dimen name="lighton_item_gap">8dp</dimen>
+    <dimen name="lighton_inline_label_gap">2dp</dimen>
+    <dimen name="lighton_inline_icon_text_gap">6dp</dimen>
+    <dimen name="lighton_workflow_gap">24dp</dimen>
+    <dimen name="lighton_result_block_padding">24dp</dimen>
+    <dimen name="lighton_dialog_padding">24dp</dimen>
+    <dimen name="lighton_dialog_content_padding">20dp</dimen>
+    <dimen name="lighton_dialog_gap">16dp</dimen>
+    <dimen name="lighton_app_bar_horizontal_padding">8dp</dimen>
+    <dimen name="lighton_app_bar_icon_size">24dp</dimen>
+    <dimen name="lighton_inline_icon_size">18dp</dimen>
+    <dimen name="lighton_sample_swatch_size">40dp</dimen>
+    <dimen name="lighton_graph_height">200dp</dimen>
+    <dimen name="lighton_border_width">1dp</dimen>
+    <dimen name="lighton_divider_height">1dp</dimen>
+    <dimen name="lighton_control_corner_radius">4dp</dimen>
+    <dimen name="lighton_surface_corner_radius">8dp</dimen>
+    <dimen name="lighton_image_corner_radius">8dp</dimen>
+    <dimen name="lighton_display_font_size">32sp</dimen>
+    <dimen name="lighton_display_line_height">38sp</dimen>
+    <dimen name="lighton_title_font_size">24sp</dimen>
+    <dimen name="lighton_title_line_height">30sp</dimen>
+    <dimen name="lighton_section_font_size">18sp</dimen>
+    <dimen name="lighton_section_line_height">24sp</dimen>
+    <dimen name="lighton_body_font_size">16sp</dimen>
+    <dimen name="lighton_body_line_height">24sp</dimen>
+    <dimen name="lighton_body_small_font_size">14sp</dimen>
+    <dimen name="lighton_body_small_line_height">20sp</dimen>
+    <dimen name="lighton_label_font_size">12sp</dimen>
+    <dimen name="lighton_label_line_height">16sp</dimen>
+    <dimen name="lighton_data_font_size">14sp</dimen>
+    <dimen name="lighton_data_line_height">20sp</dimen>
+</resources>
