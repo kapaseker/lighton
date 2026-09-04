@@ -26,6 +26,7 @@ compose-constraintlayout = "1.1.2"
 coil = "3.6.1"
 
 room = "2.8.4"
+datastore = "1.2.1"
 koin-bom = "4.2.2"
 
 [libraries]
@@ -83,6 +84,9 @@ coil-video = { module = "io.coil-kt.coil3:coil-video" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# datastore
+datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 # dependency injection
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin-bom" }

@@ -1,5 +1,6 @@
 <resources>
     <dimen name="lighton_touch_target">48dp</dimen>
+    <dimen name="lighton_min_dot_size">2dp</dimen>
     <dimen name="lighton_screen_gutter">16dp</dimen>
     <dimen name="lighton_related_gap">12dp</dimen>
     <dimen name="lighton_item_gap">8dp</dimen>

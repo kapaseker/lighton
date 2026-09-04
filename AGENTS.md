@@ -18,6 +18,7 @@
 - Start Koin in the `Application` class. Use Koin `single` definitions for application-wide dependencies and `viewModel` definitions for ViewModels. Compose retrieves ViewModels with `koinViewModel()`; do not add custom ViewModel factories for dependencies managed by Koin.
 - Name repository interfaces `XxxRepo` and implementations `XxxRepository`. Name local-storage interfaces `XxxStore` and implementations `XxxStorage`.
 - Keep UI state focused and cohesive. Split state when fields have independent load, save, or error lifecycles; keep fields that change together in the same state.
+- ViewModel state uses Kotlin explicit backing fields: expose a single `val uiState: StateFlow<XxxUiState>` initialized with `field = MutableStateFlow(...)`, mutating it internally through the field's mutable type, rather than declaring a separate `_uiState` backing property plus a public `uiState`.
 
 ## Compose UI and Navigation
 

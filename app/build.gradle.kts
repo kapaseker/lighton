@@ -20,7 +20,7 @@ android {
         create("app") {
             storeFile = rootProject.file("app.jks")
             storePassword = "007007"
-            keyAlias = "cheme"
+            keyAlias = "lightonoff"
             keyPassword = "007007"
         }
     }
@@ -31,7 +31,8 @@ android {
         }
         release {
             signingConfig = signingConfigs.getByName("app")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -70,6 +71,7 @@ dependencies {
     implementation(libs.koin.androidx.compose)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.datastore.preferences)
     ksp(libs.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
