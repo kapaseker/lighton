@@ -6,10 +6,11 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepo {
     val settings: Flow<Settings>
-    suspend fun save(brightness: Float, dotSize: Float)
+    suspend fun save(brightness: Float, dotSize: Float, hue: Float)
 }
 
 class SettingsRepository(private val store: SettingsStore) : SettingsRepo {
     override val settings: Flow<Settings> = store.settings
-    override suspend fun save(brightness: Float, dotSize: Float) = store.save(brightness, dotSize)
+    override suspend fun save(brightness: Float, dotSize: Float, hue: Float) =
+        store.save(brightness, dotSize, hue)
 }

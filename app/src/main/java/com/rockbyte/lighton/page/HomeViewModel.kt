@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// brightness = -1f 表示未设置（跟随系统）；dotSize = 0f 表示未设置（用最小尺寸）
-data class HomeUiState(val brightness: Float = -1f, val dotSize: Float = 0f)
+// brightness = -1f 表示未设置（跟随系统）；dotSize = 0f 表示未设置（用最小尺寸）；hue = -1f 表示未设置（用默认前景色）
+data class HomeUiState(val brightness: Float = -1f, val dotSize: Float = 0f, val hue: Float = -1f)
 
 class HomeViewModel(private val repo: SettingsRepo) : ViewModel() {
 
@@ -19,7 +19,9 @@ class HomeViewModel(private val repo: SettingsRepo) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            repo.settings.collect { s -> uiState.value = HomeUiState(s.brightness, s.dotSize) }
+            repo.settings.collect { s ->
+                uiState.value = HomeUiState(s.brightness, s.dotSize, s.hue)
+            }
         }
     }
 
@@ -27,9 +29,11 @@ class HomeViewModel(private val repo: SettingsRepo) : ViewModel() {
 
     fun onDotSizeChange(dotSize: Float) = uiState.update { it.copy(dotSize = dotSize) }
 
-    // 抬手时持久化当前值
-    fun onDragEnd() {
+    fun onHueChange(hue: Float) = uiState.update { it.copy(hue = hue) }
+
+    // 抬手或退出取色模式时持久化当前值
+    fun save() {
         val state = uiState.value
-        viewModelScope.launch { repo.save(state.brightness, state.dotSize) }
+        viewModelScope.launch { repo.save(state.brightness, state.dotSize, state.hue) }
     }
 }
