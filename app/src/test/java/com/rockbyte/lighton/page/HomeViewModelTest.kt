@@ -16,14 +16,14 @@ import org.junit.Before
 import org.junit.Test
 
 private class FakeSettingsRepository : SettingsRepo {
-    val settingsFlow = MutableStateFlow(Settings(brightness = -1f, dotSize = 0f, hue = -1f))
+    val settingsFlow = MutableStateFlow(Settings(brightness = -1f, dotSize = 0f))
     var saved: Settings? = null
         private set
 
     override val settings: Flow<Settings> = settingsFlow
 
-    override suspend fun save(brightness: Float, dotSize: Float, hue: Float) {
-        saved = Settings(brightness, dotSize, hue)
+    override suspend fun save(brightness: Float, dotSize: Float, red: Float, green: Float, blue: Float) {
+        saved = Settings(brightness, dotSize, red, green, blue)
     }
 }
 
@@ -42,35 +42,64 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun loadsPersistedHueOnStart() = runTest(testDispatcher) {
+    fun loadsPersistedColorOnStart() = runTest(testDispatcher) {
         val repo = FakeSettingsRepository()
-        repo.settingsFlow.value = Settings(brightness = 0.5f, dotSize = 100f, hue = 210f)
+        repo.settingsFlow.value = Settings(brightness = 0.5f, dotSize = 100f, red = 1f, green = 0.5f, blue = 0f)
         val viewModel = HomeViewModel(repo)
         advanceUntilIdle()
 
-        assertEquals(210f, viewModel.uiState.value.hue)
+        val state = viewModel.uiState.value
+        assertEquals(1f, state.red, 0.001f)
+        assertEquals(0.5f, state.green, 0.001f)
+        assertEquals(0f, state.blue, 0.001f)
     }
 
     @Test
-    fun hueChangeUpdatesUiState() = runTest(testDispatcher) {
+    fun channelChangeUpdatesUiState() = runTest(testDispatcher) {
         val viewModel = HomeViewModel(FakeSettingsRepository())
         advanceUntilIdle()
 
-        viewModel.onHueChange(120f)
+        viewModel.onRedChange(0.2f)
+        viewModel.onGreenChange(0.4f)
+        viewModel.onBlueChange(0.6f)
 
-        assertEquals(120f, viewModel.uiState.value.hue)
+        val state = viewModel.uiState.value
+        assertEquals(0.2f, state.red, 0.001f)
+        assertEquals(0.4f, state.green, 0.001f)
+        assertEquals(0.6f, state.blue, 0.001f)
     }
 
     @Test
-    fun savePersistsCurrentHue() = runTest(testDispatcher) {
+    fun initColorIfUnset_setsWhiteOnlyOnce() = runTest(testDispatcher) {
+        val viewModel = HomeViewModel(FakeSettingsRepository())
+        advanceUntilIdle()
+
+        viewModel.initColorIfUnset()
+        viewModel.onRedChange(0.3f)
+
+        // 已设置过颜色（含用户拖动后），再次进入取色模式不得重置
+        viewModel.initColorIfUnset()
+
+        val state = viewModel.uiState.value
+        assertEquals(0.3f, state.red, 0.001f)
+        assertEquals(1f, state.green, 0.001f)
+        assertEquals(1f, state.blue, 0.001f)
+    }
+
+    @Test
+    fun savePersistsCurrentColor() = runTest(testDispatcher) {
         val repo = FakeSettingsRepository()
         val viewModel = HomeViewModel(repo)
         advanceUntilIdle()
 
-        viewModel.onHueChange(300f)
+        viewModel.initColorIfUnset()
+        viewModel.onGreenChange(0.5f)
         viewModel.save()
         advanceUntilIdle()
 
-        assertEquals(300f, repo.saved?.hue)
+        val saved = requireNotNull(repo.saved)
+        assertEquals(1f, saved.red, 0.001f)
+        assertEquals(0.5f, saved.green, 0.001f)
+        assertEquals(1f, saved.blue, 0.001f)
     }
 }

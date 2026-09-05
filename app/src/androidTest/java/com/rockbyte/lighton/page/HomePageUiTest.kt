@@ -1,10 +1,13 @@
 package com.rockbyte.lighton.page
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.edit
@@ -16,16 +19,16 @@ import com.rockbyte.lighton.store.settingsDataStoreForTest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlin.math.abs
-import kotlin.math.hypot
 import kotlin.math.min
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-// 首页九宫格手势与色相圆环的 UI 测试：走真实 App 栈（真实 DataStore），用例前后清空设置
+// 首页九宫格手势与取色模式的 UI 测试：走真实 App 栈（真实 DataStore），用例前后清空设置
 @RunWith(AndroidJUnit4::class)
 class HomePageUiTest {
 
@@ -78,45 +81,46 @@ class HomePageUiTest {
     }
 
     @Test
-    fun tapTopMiddleShowsHueRingAtHalfShortSide() {
+    fun tapTopMiddleExpandsDotToHalfShortSide() {
         tapTopMiddle()
-        composeRule.onNodeWithTag("hueRing").assertExists()
-        val rootSize = rootBounds().size
-        val ringSize = ringBounds().size
-        assertEquals(min(rootSize.width, rootSize.height) / 2f, ringSize.width.toFloat(), 2f)
+        val target = rootBounds().let { min(it.width, it.height) / 2f }
+        // spring 收敛是渐近过程，收敛到容差内即认为到位
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - target) < 2f }
     }
 
     @Test
-    fun indicatorSitsOnRingCenterline() {
+    fun slidersShownBelowDot() {
         tapTopMiddle()
-        composeRule.waitForIdle()
-        val ring = ringBounds()
-        val indicatorCenter = composeRule.onNodeWithTag("hueIndicator")
-            .fetchSemanticsNode().boundsInRoot.center
-        val strokePx = with(composeRule.density) { 24.dp.toPx() }
-        val expectedOrbit = ring.size.width / 2f - strokePx / 2f
-        val actualOrbit = hypot(
-            indicatorCenter.x - ring.center.x,
-            indicatorCenter.y - ring.center.y,
-        )
-        assertEquals(expectedOrbit, actualOrbit, 3f)
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        val dotBottom = dotBounds().bottom
+        listOf("sliderR", "sliderG", "sliderB").forEach { tag ->
+            val bounds = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue("$tag should be below dot", bounds.top >= dotBottom)
+        }
+        // 三条滑条从上到下排列
+        val rTop = sliderTop("sliderR")
+        val gTop = sliderTop("sliderG")
+        val bTop = sliderTop("sliderB")
+        assertTrue(rTop < gTop && gTop < bTop)
     }
 
     @Test
-    fun ringDragMovesIndicatorToNewHue() {
+    fun sliderDragChangesDotColor() {
         tapTopMiddle()
-        val orbit = ringOrbitPx()
-        composeRule.onNodeWithTag("hueRing").performTouchInput {
-            down(Offset(center.x + orbit, center.y)) // 0° 红色
-            moveTo(Offset(center.x, center.y + orbit)) // 90° 绿色
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
+        // 进入取色模式未拖动时为白色；把 R 滑条拖到最左，圆点应变青色（R 分量归零）
+        val redBefore = dotCenterRedChannel()
+        composeRule.onNodeWithTag("sliderR", useUnmergedTree = true).performTouchInput {
+            down(Offset(center.x, center.y))
+            moveTo(Offset(0f, center.y))
             up()
         }
         composeRule.waitForIdle()
-        val rootCenter = rootBounds().center
-        val indicatorCenter = composeRule.onNodeWithTag("hueIndicator")
-            .fetchSemanticsNode().boundsInRoot.center
-        assertEquals(orbit, indicatorCenter.y - rootCenter.y, 10f)
-        assertEquals(rootCenter.x, indicatorCenter.x, 10f)
+        val redAfter = dotCenterRedChannel()
+        assertTrue("red channel $redBefore -> $redAfter should decrease", redAfter < redBefore - 100)
     }
 
     @Test
@@ -124,30 +128,32 @@ class HomePageUiTest {
         // 进入取色模式前先记录原始尺寸，退出后圆点应恢复到该值
         val dotSizeBefore = dotWidthPx()
         tapTopMiddle()
-        composeRule.onNodeWithTag("hueRing").assertExists()
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         tapTopMiddle()
+        // 退出用 snap 立即恢复；滑条随取色模式一起移除
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodesWithTag("hueRing").fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
         }
-        composeRule.onNodeWithTag("hueRing").assertDoesNotExist()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - dotSizeBefore) < 2f }
     }
 
     @Test
-    fun hueIsPersistedOnExit() {
+    fun colorIsPersistedOnExit() {
         tapTopMiddle()
-        val orbit = ringOrbitPx()
-        composeRule.onNodeWithTag("hueRing").performTouchInput {
-            down(Offset(center.x + orbit, center.y))
-            moveTo(Offset(center.x, center.y + orbit)) // 拖到 90°
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
+        // 把 R 滑条拖到最左 → color_r ≈ 0
+        composeRule.onNodeWithTag("sliderR", useUnmergedTree = true).performTouchInput {
+            down(Offset(center.x, center.y))
+            moveTo(Offset(0f, center.y))
             up()
         }
         tapTopMiddle() // 退出时持久化
-        // DataStore 写入是异步的，轮询直到 hue 出现且接近 90°
-        val hueKey = floatPreferencesKey("hue")
+        // DataStore 写入是异步的，轮询直到 color_r 出现且接近 0
+        val redKey = floatPreferencesKey("color_r")
         composeRule.waitUntil(5_000) {
-            val hue = runBlocking { targetContext.settingsDataStoreForTest.data.first() }[hueKey]
-            hue != null && abs(hue - 90f) < 5f
+            val red = runBlocking { targetContext.settingsDataStoreForTest.data.first() }[redKey]
+            red != null && red < 0.1f
         }
     }
 
@@ -160,16 +166,23 @@ class HomePageUiTest {
     private fun rootBounds() = composeRule.onNodeWithTag("homeRoot")
         .fetchSemanticsNode().boundsInRoot
 
-    private fun ringBounds() = composeRule.onNodeWithTag("hueRing")
+    private fun dotBounds() = composeRule.onNodeWithTag("dot")
         .fetchSemanticsNode().boundsInRoot
 
-    private fun ringOrbitPx(): Float {
-        val strokePx = with(composeRule.density) { 24.dp.toPx() }
-        return ringBounds().size.width / 2f - strokePx / 2f
-    }
+    private fun dotWidthPx(): Float = dotBounds().width
 
-    private fun dotWidthPx(): Float =
-        composeRule.onNodeWithTag("dot").fetchSemanticsNode().boundsInRoot.width
+    private fun colorTargetPx() = rootBounds().let { min(it.width, it.height) / 2f }
+
+    private fun sliderBounds(tag: String) = composeRule.onNodeWithTag(tag, useUnmergedTree = true)
+        .fetchSemanticsNode().boundsInRoot
+
+    private fun sliderTop(tag: String) = sliderBounds(tag).top
+
+    private fun dotCenterRedChannel(): Int {
+        val root = rootBounds()
+        val bmp = composeRule.onRoot().captureToImage().asAndroidBitmap()
+        return android.graphics.Color.red(bmp.getPixel(root.center.x.toInt(), root.center.y.toInt()))
+    }
 
     private fun minDotPx(): Float = with(composeRule.density) { 2.dp.toPx() }
 }

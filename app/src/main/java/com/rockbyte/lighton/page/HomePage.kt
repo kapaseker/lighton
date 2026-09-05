@@ -2,14 +2,17 @@ package com.rockbyte.lighton.page
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -30,13 +33,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rockbyte.lighton.R
-import com.rockbyte.lighton.page.screen.HueRingScreen
+import com.rockbyte.lighton.page.screen.RgbSlidersScreen
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.min
+import kotlin.math.roundToInt
 import org.koin.androidx.compose.koinViewModel
 
 // 九宫格手势：左列竖滑调亮度，底行横滑调圆点大小；左下重叠格按滑动方向决定
@@ -50,20 +55,27 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
     val dotSize = if (state.dotSize > 0f) state.dotSize else minDotSize
     val window = LocalActivity.current!!.window
 
-    // 取色模式是短生命周期交互状态，页面本地持有；色相本身由 ViewModel 持久化
+    // 取色模式是短生命周期交互状态，页面本地持有；颜色本身由 ViewModel 持久化
     var colorMode by rememberSaveable { mutableStateOf(false) }
     var rootSize by androidx.compose.runtime.remember { mutableStateOf(IntSize.Zero) }
-    // 色相环直径 = 屏幕短边的一半
-    val ringDiameterPx = min(rootSize.width, rootSize.height) / 2f
-    // 取色模式下圆点尺寸动画过渡到色相环直径，退出后恢复原设置大小
-    val dotTargetPx = if (colorMode && ringDiameterPx > 0f) ringDiameterPx else dotSize
+    // 取色模式下圆点尺寸 = 屏幕短边的一半
+    val colorDotPx = min(rootSize.width, rootSize.height) / 2f
+    // 取色模式下圆点以 spring 动画过渡到取色尺寸，退出后恢复原设置大小
+    val dotTargetPx = if (colorMode && colorDotPx > 0f) colorDotPx else dotSize
     val animatedDotSizePx by animateFloatAsState(
         targetValue = dotTargetPx,
-        // 进入取色模式用 tween 平滑放大到环直径；拖动调大小与退出恢复用 snap 立即生效，
+        // spring：进入取色模式平滑过渡；拖动调大小与退出恢复用 snap 立即生效，
         // 避免连续拖动时动画重启导致圆点"追赶"手指
-        animationSpec = if (colorMode) tween(300, easing = FastOutSlowInEasing) else snap(),
+        animationSpec = if (colorMode) {
+            spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+        } else {
+            snap()
+        },
         label = "dotSize",
     )
+    val gutterPx = with(density) { dimensionResource(R.dimen.lighton_screen_gutter).toPx() }
+    // 滑条组高度：用于把组顶边锚定在圆点下缘（align Center 定位的是组中心）
+    var slidersHeightPx by androidx.compose.runtime.remember { mutableStateOf(0f) }
 
     // pointerInput 内读取最新值，避免闭包捕获过期状态
     val currentDotSize by rememberUpdatedState(dotSize)
@@ -90,7 +102,7 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 detectDragGestures(
                     onDragStart = { start ->
                         mode = DragMode.None
-                        // 取色模式下网格拖动让位给色相环手势
+                        // 取色模式下网格拖动让位给取色滑条手势
                         if (!currentColorMode) {
                             val inLeftColumn = start.x < size.width / 3f
                             val inBottomRow = start.y > size.height * 2f / 3f
@@ -138,7 +150,7 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 }
             }
             .pointerInput(minDotSize) {
-                // 点击顶部中间格：进入/退出取色模式；退出时持久化色相
+                // 点击顶部中间格：进入/退出取色模式；退出时持久化颜色
                 detectTapGestures { position ->
                     val inTopMiddle = position.x >= size.width / 3f &&
                         position.x < size.width * 2f / 3f &&
@@ -151,9 +163,9 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        // 圆点即灯：已设置色相时显示该色，未设置时用默认前景色
-        val dotColor = if (state.hue >= 0f) {
-            Color.hsv(state.hue, 1f, 1f)
+        // 圆点即灯：已设置颜色时显示该色，未设置时用默认前景色
+        val dotColor = if (state.red >= 0f) {
+            Color(state.red, state.green, state.blue)
         } else {
             colorResource(R.color.lighton_foreground)
         }
@@ -166,11 +178,25 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 .background(dotColor),
         )
 
-        if (colorMode && ringDiameterPx > 0f) {
-            HueRingScreen(
-                hue = state.hue,
-                diameterPx = ringDiameterPx,
-                onHueChange = viewModel::onHueChange,
+        if (colorMode) {
+            // 滑条组挂在圆点正下方，offset 跟随 spring 动画的圆点半径联动
+            // 未设置颜色时先按白色展示，等 initColorIfUnset 落到 uiState
+            RgbSlidersScreen(
+                red = if (state.red < 0f) 1f else state.red.coerceIn(0f, 1f),
+                green = if (state.green < 0f) 1f else state.green.coerceIn(0f, 1f),
+                blue = if (state.blue < 0f) 1f else state.blue.coerceIn(0f, 1f),
+                onRedChange = viewModel::onRedChange,
+                onGreenChange = viewModel::onGreenChange,
+                onBlueChange = viewModel::onBlueChange,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .onSizeChanged { slidersHeightPx = it.height.toFloat() }
+                    .offset {
+                        IntOffset(
+                            0,
+                            (animatedDotSizePx / 2f + gutterPx + slidersHeightPx / 2f).roundToInt(),
+                        )
+                    },
             )
         }
     }

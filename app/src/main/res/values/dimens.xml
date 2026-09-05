@@ -17,9 +17,9 @@
     <dimen name="lighton_sample_swatch_size">40dp</dimen>
     <dimen name="lighton_graph_height">200dp</dimen>
     <dimen name="lighton_border_width">1dp</dimen>
-    <dimen name="lighton_color_ring_stroke">24dp</dimen>
-    <dimen name="lighton_color_indicator_size">24dp</dimen>
-    <dimen name="lighton_color_indicator_border">2dp</dimen>
+    <dimen name="lighton_slider_thumb_size">24dp</dimen>
+    <dimen name="lighton_slider_thumb_border">2dp</dimen>
+    <dimen name="lighton_slider_track_height">8dp</dimen>
     <dimen name="lighton_divider_height">1dp</dimen>
     <dimen name="lighton_control_corner_radius">4dp</dimen>
     <dimen name="lighton_surface_corner_radius">8dp</dimen>
