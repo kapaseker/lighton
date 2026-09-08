@@ -57,16 +57,16 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
 
     // 取色模式是短生命周期交互状态，页面本地持有；颜色本身由 ViewModel 持久化
     var colorMode by rememberSaveable { mutableStateOf(false) }
+    // 进出取色模式的尺寸切换用 spring 平滑过渡；拖动调大小用 snap（避免动画追赶手指）
+    var smoothDotTransition by remember { mutableStateOf(false) }
     var rootSize by androidx.compose.runtime.remember { mutableStateOf(IntSize.Zero) }
     // 取色模式下圆点尺寸 = 屏幕短边的一半
     val colorDotPx = min(rootSize.width, rootSize.height) / 2f
-    // 取色模式下圆点以 spring 动画过渡到取色尺寸，退出后恢复原设置大小
+    // 取色模式下圆点以 spring 动画过渡到取色尺寸，退出后平滑恢复原设置大小
     val dotTargetPx = if (colorMode && colorDotPx > 0f) colorDotPx else dotSize
     val animatedDotSizePx by animateFloatAsState(
         targetValue = dotTargetPx,
-        // spring：进入取色模式平滑过渡；拖动调大小与退出恢复用 snap 立即生效，
-        // 避免连续拖动时动画重启导致圆点"追赶"手指
-        animationSpec = if (colorMode) {
+        animationSpec = if (smoothDotTransition) {
             spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
         } else {
             snap()
@@ -102,6 +102,8 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 detectDragGestures(
                     onDragStart = { start ->
                         mode = DragMode.None
+                        // 拖动调大小必须即时跟手
+                        smoothDotTransition = false
                         // 取色模式下网格拖动让位给取色滑条手势
                         if (!currentColorMode) {
                             val inLeftColumn = start.x < size.width / 3f
@@ -156,7 +158,9 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                         position.x < size.width * 2f / 3f &&
                         position.y < size.height / 3f
                     if (inTopMiddle) {
-                        if (currentColorMode) viewModel.save()
+                        // 进入时保证滑条有确定初值，退出时持久化
+                        if (currentColorMode) viewModel.save() else viewModel.initColorIfUnset()
+                        smoothDotTransition = true
                         colorMode = !colorMode
                     }
                 }

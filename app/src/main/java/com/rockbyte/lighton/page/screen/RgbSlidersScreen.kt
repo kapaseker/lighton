@@ -62,11 +62,19 @@ private fun ChannelSlider(
             }
             .drawBehind {
                 val trackY = (size.height - trackHeight) / 2f
+                // 轨道与拇指同逻辑：白色胶囊打底，渐变四周内缩 borderPx（2dp 白边），
+                // 保证整体黑背景下轨道边沿可见
                 drawRoundRect(
-                    brush = Brush.horizontalGradient(listOf(Color.Black, fullColor)),
+                    color = Color.White,
                     topLeft = Offset(0f, trackY),
                     size = Size(size.width, trackHeight),
                     cornerRadius = CornerRadius(trackHeight / 2f),
+                )
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(listOf(Color.Black, fullColor)),
+                    topLeft = Offset(borderPx, trackY + borderPx),
+                    size = Size(size.width - borderPx * 2, trackHeight - borderPx * 2),
+                    cornerRadius = CornerRadius((trackHeight - borderPx * 2) / 2f),
                 )
                 val thumbCenter = Offset(value * size.width, size.height / 2f)
                 drawCircle(Color.White, radius = thumbRadius, center = thumbCenter)

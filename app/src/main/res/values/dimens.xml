@@ -19,7 +19,7 @@
     <dimen name="lighton_border_width">1dp</dimen>
     <dimen name="lighton_slider_thumb_size">24dp</dimen>
     <dimen name="lighton_slider_thumb_border">2dp</dimen>
-    <dimen name="lighton_slider_track_height">8dp</dimen>
+    <dimen name="lighton_slider_track_height">10dp</dimen>
     <dimen name="lighton_divider_height">1dp</dimen>
     <dimen name="lighton_control_corner_radius">4dp</dimen>
     <dimen name="lighton_surface_corner_radius">8dp</dimen>
