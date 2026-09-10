@@ -179,12 +179,13 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 }
             }
             .pointerInput(minDotSize) {
-                // 点击顶部中间格进入取色模式；退出由右上角关闭按钮负责
+                // 点击九宫格中间格（圆点区域）进入取色模式；退出由右上角按钮负责
                 detectTapGestures { position ->
-                    val inTopMiddle = position.x >= size.width / 3f &&
+                    val inCenter = position.x >= size.width / 3f &&
                         position.x < size.width * 2f / 3f &&
-                        position.y < size.height / 3f
-                    if (!currentColorMode && inTopMiddle) {
+                        position.y >= size.height / 3f &&
+                        position.y < size.height * 2f / 3f
+                    if (!currentColorMode && inCenter) {
                         // 进入时快照颜色（供取消恢复）并保证滑条有确定初值
                         viewModel.beginColorEditing()
                         smoothDotTransition = true

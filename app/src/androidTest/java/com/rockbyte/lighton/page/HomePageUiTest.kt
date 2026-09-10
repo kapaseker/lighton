@@ -82,8 +82,8 @@ class HomePageUiTest {
     }
 
     @Test
-    fun tapTopMiddleExpandsDotToHalfShortSide() {
-        tapTopMiddle()
+    fun tapCenterExpandsDotToHalfShortSide() {
+        tapCenter()
         val target = rootBounds().let { min(it.width, it.height) / 2f }
         // spring 收敛是渐近过程，收敛到容差内即认为到位
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - target) < 2f }
@@ -91,7 +91,7 @@ class HomePageUiTest {
 
     @Test
     fun slidersShownBelowDot() {
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
         }
@@ -110,7 +110,7 @@ class HomePageUiTest {
 
     @Test
     fun sliderDragChangesDotColor() {
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         // 进入取色模式未拖动时为白色；把 R 滑条拖到最左，圆点应变青色（R 分量归零）
         val redBefore = dotCenterRedChannel()
@@ -125,11 +125,11 @@ class HomePageUiTest {
     }
 
     @Test
-    fun tapTopMiddleAgainDoesNotExit() {
-        tapTopMiddle()
+    fun tapCenterAgainDoesNotExit() {
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
-        // 中上区域不再承担退出职责，取色模式应保持
-        tapTopMiddle()
+        // 中间区域不再承担退出职责，取色模式应保持
+        tapCenter()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -140,7 +140,7 @@ class HomePageUiTest {
     fun cancelButtonExitsAndRestoresDotSize() {
         // 进入取色模式前先记录原始尺寸，取消退出后圆点应恢复到该值
         val dotSizeBefore = dotWidthPx()
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         tapCancelColorMode()
         // 滑条随取色模式一起移除，圆点 spring 收敛回原尺寸
@@ -153,7 +153,7 @@ class HomePageUiTest {
 
     @Test
     fun cancelButtonRestoresColorBeforeEditing() {
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         // 未设置颜色进入取色模式时圆点为白（红通道 255）
         val redBefore = dotCenterRedChannel()
@@ -176,7 +176,7 @@ class HomePageUiTest {
 
     @Test
     fun eyeCareSwatchSelectChangesDotColorAndPersistsOnConfirm() {
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         // 护眼色板悬于圆点上方
         val dotTop = dotBounds().top
@@ -199,7 +199,7 @@ class HomePageUiTest {
 
     @Test
     fun checkButtonPersistsColorOnExit() {
-        tapTopMiddle()
+        tapCenter()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         // 把 R 滑条拖到最左 → color_r ≈ 0
         composeRule.onNodeWithTag("sliderR", useUnmergedTree = true).performTouchInput {
@@ -216,9 +216,9 @@ class HomePageUiTest {
         }
     }
 
-    private fun tapTopMiddle() {
+    private fun tapCenter() {
         composeRule.onNodeWithTag("homeRoot").performTouchInput {
-            click(Offset(width / 2f, height / 6f))
+            click(Offset(width / 2f, height / 2f))
         }
     }
 

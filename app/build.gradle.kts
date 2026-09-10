@@ -43,6 +43,15 @@ android {
     buildFeatures { compose = true }
 }
 
+// APK 产物命名：应用名前缀 + 变体 + 版本号，如 lighton-release-1.1.apk（与 defaultConfig 同读 version catalog，保持单一来源）
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("lighton-${variant.name}-${libs.versions.version.name.get()}.apk")
+        }
+    }
+}
+
 kotlin {
     jvmToolchain(libs.versions.jvm.target.get().toInt())
     compilerOptions {
@@ -77,9 +86,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test.junit4)
+    androidTestImplementation(composeBom)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(composeBom)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 }
