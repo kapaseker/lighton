@@ -53,7 +53,9 @@ kotlin {
 
 dependencies {
     val koinBom = platform(libs.koin.bom)
+    val composeBom = platform(libs.compose.bom)
     implementation(koinBom)
+    implementation(composeBom)
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime)
     implementation(libs.lifecycle.runtime.compose)
@@ -62,7 +64,6 @@ dependencies {
     implementation(libs.navigation3.runtime)
     implementation(libs.navigation3.ui)
     implementation(libs.compose.activity)
-    implementation(platform(libs.compose.bom))
     implementation(libs.compose.foundation)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -76,12 +77,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.koin.test.junit4)
-    androidTestImplementation(koinBom)
-    androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
-    debugImplementation(platform(libs.compose.bom))
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 }
