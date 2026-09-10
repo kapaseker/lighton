@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.rockbyte.lighton.MainActivity
@@ -124,13 +125,25 @@ class HomePageUiTest {
     }
 
     @Test
-    fun tapTopMiddleAgainExitsAndRestoresDotSize() {
-        // 进入取色模式前先记录原始尺寸，退出后圆点应恢复到该值
+    fun tapTopMiddleAgainDoesNotExit() {
+        tapTopMiddle()
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
+        // 中上区域不再承担退出职责，取色模式应保持
+        tapTopMiddle()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun cancelButtonExitsAndRestoresDotSize() {
+        // 进入取色模式前先记录原始尺寸，取消退出后圆点应恢复到该值
         val dotSizeBefore = dotWidthPx()
         tapTopMiddle()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
-        tapTopMiddle()
-        // 退出用 snap 立即恢复；滑条随取色模式一起移除
+        tapCancelColorMode()
+        // 滑条随取色模式一起移除，圆点 spring 收敛回原尺寸
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true)
                 .fetchSemanticsNodes().isEmpty()
@@ -139,7 +152,53 @@ class HomePageUiTest {
     }
 
     @Test
-    fun colorIsPersistedOnExit() {
+    fun cancelButtonRestoresColorBeforeEditing() {
+        tapTopMiddle()
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
+        // 未设置颜色进入取色模式时圆点为白（红通道 255）
+        val redBefore = dotCenterRedChannel()
+        // 把 R 滑条拖到最左 → 圆点变青（红通道大幅下降）
+        composeRule.onNodeWithTag("sliderR", useUnmergedTree = true).performTouchInput {
+            down(Offset(center.x, center.y))
+            moveTo(Offset(0f, center.y))
+            up()
+        }
+        composeRule.waitForIdle()
+        assertTrue("red channel should drop after slider drag", dotCenterRedChannel() < redBefore - 100)
+        // 取消应恢复进入前颜色
+        tapCancelColorMode()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("sliderR", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.waitUntil(5_000) { abs(dotCenterRedChannel() - redBefore) < 10 }
+    }
+
+    @Test
+    fun eyeCareSwatchSelectChangesDotColorAndPersistsOnConfirm() {
+        tapTopMiddle()
+        composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
+        // 护眼色板悬于圆点上方
+        val dotTop = dotBounds().top
+        val swatchBottom = composeRule.onNodeWithTag("eyeCareSwatch0", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.bottom
+        assertTrue("eyeCareSwatch should be above dot", swatchBottom <= dotTop + 1f)
+        composeRule.onNodeWithTag("eyeCareSwatch0", useUnmergedTree = true)
+            .performTouchInput { click(center) }
+        composeRule.waitForIdle()
+        // 圆点立即变为绿豆沙 #C7EDCC（红通道 199）
+        val red = dotCenterRedChannel()
+        assertTrue("dot red channel should be ~199, was $red", abs(red - 199) < 10)
+        // 选中下标在确认后持久化
+        tapSaveColorMode()
+        val indexKey = intPreferencesKey("eye_care_index")
+        composeRule.waitUntil(5_000) {
+            runBlocking { targetContext.settingsDataStoreForTest.data.first() }[indexKey] == 0
+        }
+    }
+
+    @Test
+    fun checkButtonPersistsColorOnExit() {
         tapTopMiddle()
         composeRule.waitUntil(5_000) { abs(dotWidthPx() - colorTargetPx()) < 2f }
         // 把 R 滑条拖到最左 → color_r ≈ 0
@@ -148,7 +207,7 @@ class HomePageUiTest {
             moveTo(Offset(0f, center.y))
             up()
         }
-        tapTopMiddle() // 退出时持久化
+        tapSaveColorMode() // 确认退出时持久化
         // DataStore 写入是异步的，轮询直到 color_r 出现且接近 0
         val redKey = floatPreferencesKey("color_r")
         composeRule.waitUntil(5_000) {
@@ -161,6 +220,14 @@ class HomePageUiTest {
         composeRule.onNodeWithTag("homeRoot").performTouchInput {
             click(Offset(width / 2f, height / 6f))
         }
+    }
+
+    private fun tapSaveColorMode() {
+        composeRule.onNodeWithTag("saveColorMode").performTouchInput { click(center) }
+    }
+
+    private fun tapCancelColorMode() {
+        composeRule.onNodeWithTag("cancelColorMode").performTouchInput { click(center) }
     }
 
     private fun rootBounds() = composeRule.onNodeWithTag("homeRoot")

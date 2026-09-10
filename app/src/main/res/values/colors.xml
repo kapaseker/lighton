@@ -8,4 +8,7 @@
     <color name="lighton_muted_surface">#F2F2F2</color>
     <color name="lighton_surface">#FFFFFF</color>
     <color name="lighton_foreground">#FFFFFF</color>
+    <!-- 取色模式浮层控件（黑画布上的铬层）：半透明底与弱化白图标，保证点按区可见且夜间不刺眼 -->
+    <color name="lighton_overlay_scrim">#1FFFFFFF</color>
+    <color name="lighton_overlay_icon">#CCFFFFFF</color>
 </resources>

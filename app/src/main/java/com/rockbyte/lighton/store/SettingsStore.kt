@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -15,13 +16,15 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 internal val Context.settingsDataStoreForTest: DataStore<Preferences> get() = settingsDataStore
 
 // brightness = -1f 表示未设置（跟随系统）；dotSize = 0f 表示未设置（用最小尺寸）；
-// red = -1f 表示未设置颜色（用默认前景色），green/blue 忽略；分量取值 0f..1f
+// red = -1f 表示未设置颜色（用默认前景色），green/blue 忽略；分量取值 0f..1f；
+// eyeCareIndex = -1 表示未选中护眼色，否则为 EyeCareColors 下标
 data class Settings(
     val brightness: Float,
     val dotSize: Float,
     val red: Float = -1f,
     val green: Float = -1f,
     val blue: Float = -1f,
+    val eyeCareIndex: Int = -1,
 )
 
 interface SettingsStore {
@@ -39,6 +42,7 @@ class SettingsStorage(context: Context) : SettingsStore {
             red = prefs[KEY_RED] ?: -1f,
             green = prefs[KEY_GREEN] ?: -1f,
             blue = prefs[KEY_BLUE] ?: -1f,
+            eyeCareIndex = prefs[KEY_EYE_CARE_INDEX] ?: -1,
         )
     }
 
@@ -49,6 +53,7 @@ class SettingsStorage(context: Context) : SettingsStore {
             prefs[KEY_RED] = settings.red
             prefs[KEY_GREEN] = settings.green
             prefs[KEY_BLUE] = settings.blue
+            prefs[KEY_EYE_CARE_INDEX] = settings.eyeCareIndex
         }
     }
 
@@ -58,5 +63,6 @@ class SettingsStorage(context: Context) : SettingsStore {
         val KEY_RED = floatPreferencesKey("color_r")
         val KEY_GREEN = floatPreferencesKey("color_g")
         val KEY_BLUE = floatPreferencesKey("color_b")
+        val KEY_EYE_CARE_INDEX = intPreferencesKey("eye_care_index")
     }
 }

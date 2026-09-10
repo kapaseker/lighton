@@ -22,8 +22,15 @@ private class FakeSettingsRepository : SettingsRepo {
 
     override val settings: Flow<Settings> = settingsFlow
 
-    override suspend fun save(brightness: Float, dotSize: Float, red: Float, green: Float, blue: Float) {
-        saved = Settings(brightness, dotSize, red, green, blue)
+    override suspend fun save(
+        brightness: Float,
+        dotSize: Float,
+        red: Float,
+        green: Float,
+        blue: Float,
+        eyeCareIndex: Int,
+    ) {
+        saved = Settings(brightness, dotSize, red, green, blue, eyeCareIndex)
     }
 }
 
@@ -44,7 +51,7 @@ class HomeViewModelTest {
     @Test
     fun loadsPersistedColorOnStart() = runTest(testDispatcher) {
         val repo = FakeSettingsRepository()
-        repo.settingsFlow.value = Settings(brightness = 0.5f, dotSize = 100f, red = 1f, green = 0.5f, blue = 0f)
+        repo.settingsFlow.value = Settings(brightness = 0.5f, dotSize = 100f, red = 1f, green = 0.5f, blue = 0f, eyeCareIndex = 2)
         val viewModel = HomeViewModel(repo)
         advanceUntilIdle()
 
@@ -52,6 +59,7 @@ class HomeViewModelTest {
         assertEquals(1f, state.red, 0.001f)
         assertEquals(0.5f, state.green, 0.001f)
         assertEquals(0f, state.blue, 0.001f)
+        assertEquals(2, state.eyeCareIndex)
     }
 
     @Test
@@ -101,5 +109,111 @@ class HomeViewModelTest {
         assertEquals(1f, saved.red, 0.001f)
         assertEquals(0.5f, saved.green, 0.001f)
         assertEquals(1f, saved.blue, 0.001f)
+    }
+
+    @Test
+    fun eyeCareSelectUpdatesColorIndex() = runTest(testDispatcher) {
+        val repo = FakeSettingsRepository()
+        val viewModel = HomeViewModel(repo)
+        advanceUntilIdle()
+
+        viewModel.onEyeCareColorSelect(0)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(0, state.eyeCareIndex)
+        assertEquals(EyeCareColors[0].red, state.red, 0.001f)
+        assertEquals(EyeCareColors[0].green, state.green, 0.001f)
+        assertEquals(EyeCareColors[0].blue, state.blue, 0.001f)
+        // 持久化统一由确认按钮触发，选中护眼色本身不写 store
+        assertEquals(null, repo.saved)
+    }
+
+    @Test
+    fun channelChangeClearsEyeCareSelection() = runTest(testDispatcher) {
+        val viewModel = HomeViewModel(FakeSettingsRepository())
+        advanceUntilIdle()
+
+        viewModel.onEyeCareColorSelect(3)
+        viewModel.onGreenChange(0.5f)
+
+        assertEquals(-1, viewModel.uiState.value.eyeCareIndex)
+    }
+
+    @Test
+    fun eyeCareSelectWithInvalidIndexIsIgnored() = runTest(testDispatcher) {
+        val viewModel = HomeViewModel(FakeSettingsRepository())
+        advanceUntilIdle()
+
+        viewModel.onEyeCareColorSelect(EyeCareColors.size)
+
+        assertEquals(-1, viewModel.uiState.value.eyeCareIndex)
+    }
+
+    @Test
+    fun beginColorEditing_initializesUnsetColor() = runTest(testDispatcher) {
+        val viewModel = HomeViewModel(FakeSettingsRepository())
+        advanceUntilIdle()
+
+        viewModel.beginColorEditing()
+
+        val state = viewModel.uiState.value
+        assertEquals(1f, state.red, 0.001f)
+        assertEquals(1f, state.green, 0.001f)
+        assertEquals(1f, state.blue, 0.001f)
+    }
+
+    @Test
+    fun confirmColorEditing_persistsEditedColor() = runTest(testDispatcher) {
+        val repo = FakeSettingsRepository()
+        val viewModel = HomeViewModel(repo)
+        advanceUntilIdle()
+
+        viewModel.beginColorEditing()
+        viewModel.onEyeCareColorSelect(2)
+        viewModel.confirmColorEditing()
+        advanceUntilIdle()
+
+        val saved = requireNotNull(repo.saved)
+        assertEquals(2, saved.eyeCareIndex)
+        assertEquals(EyeCareColors[2].red, saved.red, 0.001f)
+        assertEquals(EyeCareColors[2].green, saved.green, 0.001f)
+        assertEquals(EyeCareColors[2].blue, saved.blue, 0.001f)
+    }
+
+    @Test
+    fun cancelColorEditing_restoresColorBeforeEditing() = runTest(testDispatcher) {
+        val repo = FakeSettingsRepository()
+        repo.settingsFlow.value = Settings(brightness = 0.5f, dotSize = 100f, red = 1f, green = 0.5f, blue = 0f, eyeCareIndex = 2)
+        val viewModel = HomeViewModel(repo)
+        advanceUntilIdle()
+
+        viewModel.beginColorEditing()
+        viewModel.onEyeCareColorSelect(0)
+        viewModel.onRedChange(0.1f)
+        viewModel.cancelColorEditing()
+
+        val state = viewModel.uiState.value
+        assertEquals(1f, state.red, 0.001f)
+        assertEquals(0.5f, state.green, 0.001f)
+        assertEquals(0f, state.blue, 0.001f)
+        assertEquals(2, state.eyeCareIndex)
+        // 取消不写 store
+        assertEquals(null, repo.saved)
+    }
+
+    @Test
+    fun cancelColorEditing_restoresUnsetColorToUnset() = runTest(testDispatcher) {
+        val viewModel = HomeViewModel(FakeSettingsRepository())
+        advanceUntilIdle()
+
+        viewModel.beginColorEditing() // 未设置 → 初始化为白
+        viewModel.onRedChange(0.2f)
+        viewModel.cancelColorEditing()
+
+        val state = viewModel.uiState.value
+        assertEquals(-1f, state.red, 0.001f)
+        assertEquals(-1f, state.green, 0.001f)
+        assertEquals(-1f, state.blue, 0.001f)
     }
 }

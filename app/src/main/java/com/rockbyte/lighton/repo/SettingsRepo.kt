@@ -7,13 +7,14 @@ import kotlinx.coroutines.flow.Flow
 interface SettingsRepo {
     val settings: Flow<Settings>
 
-    // 原语签名：让上层（ViewModel）无需依赖 store 层的 Settings 类型；-1f 为未设置哨兵
+    // 原语签名：让上层（ViewModel）无需依赖 store 层的 Settings 类型；-1f/-1 为未设置哨兵
     suspend fun save(
         brightness: Float,
         dotSize: Float,
         red: Float = -1f,
         green: Float = -1f,
         blue: Float = -1f,
+        eyeCareIndex: Int = -1,
     )
 }
 
@@ -26,5 +27,6 @@ class SettingsRepository(private val store: SettingsStore) : SettingsRepo {
         red: Float,
         green: Float,
         blue: Float,
-    ) = store.save(Settings(brightness, dotSize, red, green, blue))
+        eyeCareIndex: Int,
+    ) = store.save(Settings(brightness, dotSize, red, green, blue, eyeCareIndex))
 }

@@ -1,19 +1,32 @@
 package com.rockbyte.lighton.page
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,16 +40,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rockbyte.lighton.R
+import com.rockbyte.lighton.page.screen.EyeCareColorsScreen
 import com.rockbyte.lighton.page.screen.RgbSlidersScreen
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -76,6 +94,8 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
     val gutterPx = with(density) { dimensionResource(R.dimen.lighton_screen_gutter).toPx() }
     // 滑条组高度：用于把组顶边锚定在圆点下缘（align Center 定位的是组中心）
     var slidersHeightPx by androidx.compose.runtime.remember { mutableStateOf(0f) }
+    // 护眼色板高度：同上，锚定在圆点上缘
+    var eyeCareHeightPx by remember { mutableStateOf(0f) }
 
     // pointerInput 内读取最新值，避免闭包捕获过期状态
     val currentDotSize by rememberUpdatedState(dotSize)
@@ -86,6 +106,13 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
         if (state.brightness >= 0f) {
             window.attributes = window.attributes.apply { screenBrightness = state.brightness }
         }
+    }
+
+    // 系统返回与右上角取消按钮一致：恢复进入前颜色并退出取色模式
+    BackHandler(enabled = colorMode) {
+        viewModel.cancelColorEditing()
+        smoothDotTransition = true
+        colorMode = false
     }
 
     Box(
@@ -152,16 +179,16 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 }
             }
             .pointerInput(minDotSize) {
-                // 点击顶部中间格：进入/退出取色模式；退出时持久化颜色
+                // 点击顶部中间格进入取色模式；退出由右上角关闭按钮负责
                 detectTapGestures { position ->
                     val inTopMiddle = position.x >= size.width / 3f &&
                         position.x < size.width * 2f / 3f &&
                         position.y < size.height / 3f
-                    if (inTopMiddle) {
-                        // 进入时保证滑条有确定初值，退出时持久化
-                        if (currentColorMode) viewModel.save() else viewModel.initColorIfUnset()
+                    if (!currentColorMode && inTopMiddle) {
+                        // 进入时快照颜色（供取消恢复）并保证滑条有确定初值
+                        viewModel.beginColorEditing()
                         smoothDotTransition = true
-                        colorMode = !colorMode
+                        colorMode = true
                     }
                 }
             },
@@ -181,6 +208,24 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                 .clip(CircleShape)
                 .background(dotColor),
         )
+
+        if (colorMode) {
+            // 护眼色板挂在圆点正上方，offset 跟随 spring 动画的圆点半径联动（与下方滑条镜像）
+            EyeCareColorsScreen(
+                colors = EyeCareColors,
+                selectedIndex = state.eyeCareIndex,
+                onSelect = viewModel::onEyeCareColorSelect,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .onSizeChanged { eyeCareHeightPx = it.height.toFloat() }
+                    .offset {
+                        IntOffset(
+                            0,
+                            -(animatedDotSizePx / 2f + gutterPx + eyeCareHeightPx / 2f).roundToInt(),
+                        )
+                    },
+            )
+        }
 
         if (colorMode) {
             // 滑条组挂在圆点正下方，offset 跟随 spring 动画的圆点半径联动
@@ -203,5 +248,76 @@ fun HomePage(viewModel: HomeViewModel = koinViewModel()) {
                     },
             )
         }
+
+        // 取色模式操作区：确认（保存）/ 取消（恢复进入前颜色）双浮层按钮，随取色模式淡入淡出；
+        // 取消按钮保持在最角落，延续原关闭按钮的位置记忆
+        AnimatedVisibility(
+            visible = colorMode,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(dimensionResource(R.dimen.lighton_screen_gutter)),
+        ) {
+            Row {
+                OverlayIconButton(
+                    tag = "saveColorMode",
+                    iconRes = R.drawable.ic_check,
+                    contentDescriptionRes = R.string.save,
+                    onClick = {
+                        viewModel.confirmColorEditing()
+                        smoothDotTransition = true
+                        colorMode = false
+                    },
+                )
+                Spacer(Modifier.width(dimensionResource(R.dimen.lighton_item_gap)))
+                OverlayIconButton(
+                    tag = "cancelColorMode",
+                    iconRes = R.drawable.ic_close,
+                    contentDescriptionRes = R.string.cancel,
+                    onClick = {
+                        viewModel.cancelColorEditing()
+                        smoothDotTransition = true
+                        colorMode = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+// 浮层图标按钮：48dp 触控区带半透明圆形底（点按区可见），24dp 图标弱化白降低夜间刺眼；按压时图标变暗作为反馈
+@Composable
+private fun OverlayIconButton(
+    tag: String,
+    iconRes: Int,
+    contentDescriptionRes: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    Box(
+        modifier = modifier
+            .testTag(tag)
+            .size(dimensionResource(R.dimen.lighton_touch_target))
+            .clip(CircleShape)
+            .background(colorResource(R.color.lighton_overlay_scrim))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(iconRes),
+            contentDescription = stringResource(contentDescriptionRes),
+            colorFilter = ColorFilter.tint(
+                colorResource(R.color.lighton_overlay_icon).copy(alpha = if (pressed) 0.6f else 1f),
+            ),
+            modifier = Modifier.size(dimensionResource(R.dimen.lighton_app_bar_icon_size)),
+        )
     }
 }
